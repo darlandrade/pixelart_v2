@@ -4,6 +4,7 @@ using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace PixelArtEditor
 {
@@ -12,16 +13,17 @@ namespace PixelArtEditor
         private static readonly Color FUNDOPADRAOBTN = Color.FromArgb(60, 60, 64);
         private static readonly Color MOUSEHOVERBTNCOLOR = Color.FromArgb(15, 62, 138);
         private static readonly Color BTNATIVO = Color.DarkCyan;
-        private static readonly Color CORCANVAS1 = Color.LightGray;
-        private static readonly Color CORCANVAS2 = Color.Gray;
+        private static readonly Color CORCANVAS1 = Color.FromArgb(150,150,150); 
+        private static readonly Color CORCANVAS2 = Color.FromArgb(145,145,145);
         private static readonly Color CORPREFORMA = Color.FromArgb(100, 0, 255, 255);
 
         private const int GridWidth = 32;
         private const int GridHeight = 32;
+        private bool mostrarGrid = false; // Controla a exibição da grade        
 
         private Bitmap canvasBitmap;
         private Color drawColor = Color.Black;
-        private Color secondaryColor = Color.Red;
+        private Color secondaryColor = Color.FromArgb(65, 84, 63);
 
         private Panel colorPrimaryPanel;
         private Panel colorSecondaryPanel;
@@ -33,6 +35,7 @@ namespace PixelArtEditor
         private bool isDrawing = false;
         private float zoom = 16f;
         private float zoomIncrement = 1.1f;
+        private const float zoommaximo = 60f;
 
         private Panel panelLeft;
         private Panel panelRight;
@@ -48,7 +51,7 @@ namespace PixelArtEditor
 
 
         // ==================== Ferramentas ====================
-        private enum Ferramenta { Lapiz, Borracha, Balde, Retangulo, Circulo }
+        private enum Ferramenta { Lapiz, Borracha, Balde, Retangulo, Circulo, Linha }
         private Ferramenta ferramentaAtual = Ferramenta.Lapiz;
         private Point? pontoFinal = null;
         private Point? pontoInicial = null;
@@ -77,6 +80,7 @@ namespace PixelArtEditor
             this.WindowState = FormWindowState.Maximized;
             this.Text = "Pixel Art Editor";
             this.KeyPreview = true;
+            this.Text = mostrarGrid ? "Pixel Art Editor - Grid ON (Ctrl+G para alternar)" : "Pixel Art Editor - Grid OFF (Ctrl+G para alternar)";
 
             canvasBitmap = new Bitmap(GridWidth, GridHeight);
             CriarLayout();
@@ -383,6 +387,7 @@ namespace PixelArtEditor
             btnBalde = CriarBotaoFerramenta("🪣 Balde", 90, Ferramenta.Balde);
             Button btnRetangulo = CriarBotaoFerramenta("▭ Retângulo", 130, Ferramenta.Retangulo);
             Button btnCirculo = CriarBotaoFerramenta("● Círculo", 170, Ferramenta.Circulo);
+            Button btnLinha = CriarBotaoFerramenta("／ Linha", 210, Ferramenta.Linha);
 
             // Adiciona ao painel
             panelLeft.Controls.Add(btnLapis);
@@ -390,6 +395,7 @@ namespace PixelArtEditor
             panelLeft.Controls.Add(btnBalde);
             panelLeft.Controls.Add(btnRetangulo);
             panelLeft.Controls.Add(btnCirculo);
+            panelLeft.Controls.Add(btnLinha);
 
             // Define o botão ativo inicialmente
             SetActiveButton(btnLapis);
@@ -462,11 +468,12 @@ namespace PixelArtEditor
             int y = (int)((e.Y - OffsetY) / zoom);
             if (x < 0 || x >= GridWidth || y < 0 || y >= GridHeight) return;
 
-            if (ferramentaAtual == Ferramenta.Retangulo || ferramentaAtual == Ferramenta.Circulo)
+            if (ferramentaAtual == Ferramenta.Retangulo || ferramentaAtual == Ferramenta.Circulo || ferramentaAtual == Ferramenta.Linha)
             {
                 pontoInicial = new Point(x, y);
                 pontoFinal = null;
             }
+
             else
             {
                 isDrawing = true;
@@ -490,7 +497,12 @@ namespace PixelArtEditor
                 pontoFinal = new Point(x, y);
                 panelCanvas.Invalidate(); // redesenha o preview
             }
-            else if (isDrawing)
+            else if (ferramentaAtual == Ferramenta.Linha && pontoInicial.HasValue)
+            {
+                pontoFinal = new Point(x, y);
+                panelCanvas.Invalidate(); // força o redraw do canvas
+            }
+                else if (isDrawing)
             {
                 // 🔧 Corrigido: detectar qual botão está pressionado
                 if (Control.MouseButtons == MouseButtons.Left)
@@ -515,11 +527,48 @@ namespace PixelArtEditor
                 pontoFinal = null;
                 panelCanvas.Invalidate();
             }
+            if (ferramentaAtual == Ferramenta.Linha && pontoInicial.HasValue && pontoFinal.HasValue)
+            {
+                Color corUsada = (e.Button == MouseButtons.Right) ? secondaryColor : drawColor;
+
+                foreach (Point p in GetLinePoints(pontoInicial.Value.X, pontoInicial.Value.Y,
+                                                 pontoFinal.Value.X, pontoFinal.Value.Y))
+                {
+                    SetPixelComEspelho(p.X, p.Y, corUsada);
+                }
+
+                pontoInicial = null;
+                pontoFinal = null;
+                panelCanvas.Invalidate();
+            }
+
+
 
             isDrawing = false;
 
             if (ferramentaAtual == Ferramenta.Lapiz || ferramentaAtual == Ferramenta.Borracha)
                 pontoFinal = null;
+        }
+        private IEnumerable<Point> GetLinePoints(int x0, int y0, int x1, int y1)
+        {
+            List<Point> pontos = new List<Point>();
+
+            int dx = Math.Abs(x1 - x0);
+            int dy = Math.Abs(y1 - y0);
+            int sx = x0 < x1 ? 1 : -1;
+            int sy = y0 < y1 ? 1 : -1;
+            int err = dx - dy;
+
+            while (true)
+            {
+                pontos.Add(new Point(x0, y0));
+                if (x0 == x1 && y0 == y1) break;
+                int e2 = 2 * err;
+                if (e2 > -dy) { err -= dy; x0 += sx; }
+                if (e2 < dx) { err += dx; y0 += sy; }
+            }
+
+            return pontos;
         }
 
         private void DesenharCirculo(Point centro, Point borda, Color cor)
@@ -576,9 +625,23 @@ namespace PixelArtEditor
 
         private void PanelCanvas_MouseWheel(object sender, MouseEventArgs e)
         {
-            zoom = e.Delta > 0 ? zoom * zoomIncrement : zoom / zoomIncrement;
+            float oldZoom = zoom;
+            if (e.Delta > 0)
+                zoom *= 1.1f;
+            else
+                zoom *= 0.9f;
+
+            // 🔧 Limite de zoom
+            zoom = Math.Max(1.0f, Math.Min(zoom, zoommaximo));
+
+            // Reajuste opcional: manter o ponto central ao dar zoom
+            //int mouseX = e.X;
+            //int mouseY = e.Y;
+            //OffsetX = mouseX - (int)((mouseX - OffsetX) * (zoom / oldZoom));
+            //OffsetY = mouseY - (int)((mouseY - OffsetY) * (zoom / oldZoom));
             panelCanvas.Invalidate();
         }
+
 
         private void Form1_KeyDown(object sender, KeyEventArgs e)
         {
@@ -589,6 +652,10 @@ namespace PixelArtEditor
             {
                 canvasBitmap = undoStack.Pop();
                 panelCanvas.Invalidate();
+            }
+            if (e.Control && e.KeyCode == Keys.G)
+            {
+                mostrarGrid = !mostrarGrid;
             }
 
             panelCanvas.Invalidate();
@@ -703,12 +770,15 @@ namespace PixelArtEditor
             }
 
             // ==================== Grid ====================
-            using (Pen pen = new Pen(Color.FromArgb(100, Color.Black)))
+            if (mostrarGrid)
             {
-                for (int x = 0; x <= GridWidth; x++)
-                    g.DrawLine(pen, offsetX + x * zoom, offsetY, offsetX + x * zoom, offsetY + GridHeight * zoom);
-                for (int y = 0; y <= GridHeight; y++)
-                    g.DrawLine(pen, offsetX, offsetY + y * zoom, offsetX + GridWidth * zoom, offsetY + y * zoom);
+                using (Pen pen = new Pen(Color.FromArgb(100, Color.Black)))
+                {
+                    for (int x = 0; x <= GridWidth; x++)
+                        g.DrawLine(pen, offsetX + x * zoom, offsetY, offsetX + x * zoom, offsetY + GridHeight * zoom);
+                    for (int y = 0; y <= GridHeight; y++)
+                        g.DrawLine(pen, offsetX, offsetY + y * zoom, offsetX + GridWidth * zoom, offsetY + y * zoom);
+                }
             }
 
             // ==================== Preview do retângulo ====================
@@ -782,6 +852,18 @@ namespace PixelArtEditor
                     }
                 }
             }
+            // ==================== Preview da Linha ====================
+            if (ferramentaAtual == Ferramenta.Linha && pontoInicial.HasValue && pontoFinal.HasValue)
+            {
+                Color corPreview = CORPREFORMA; // cor semi-transparente de preview
+                foreach (Point p in GetLinePoints(pontoInicial.Value.X, pontoInicial.Value.Y,
+                                                 pontoFinal.Value.X, pontoFinal.Value.Y))
+                {
+                    DrawPreviewPixel(e.Graphics, p.X, p.Y, corPreview);
+                }
+            }
+
+
         }
 
     }
