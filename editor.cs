@@ -726,6 +726,31 @@ namespace PixelArtEditor
 
             panelCanvas.Invalidate();
         }
+        private void DrawPreviewPixelComEspelho(Graphics g, int x, int y, Color cor)
+        {
+            List<Point> pontos = new List<Point>();
+            pontos.Add(new Point(x, y));
+
+            int xEsp = GridWidth - 1 - x;
+            int yEsp = GridHeight - 1 - y;
+
+            if (espelhoH && !espelhoV) // apenas horizontal
+                pontos.Add(new Point(xEsp, y));
+            else if (!espelhoH && espelhoV) // apenas vertical
+                pontos.Add(new Point(x, yEsp));
+            else if (espelhoH && espelhoV) // ambos
+            {
+                pontos.Add(new Point(xEsp, y));
+                pontos.Add(new Point(x, yEsp));
+                pontos.Add(new Point(xEsp, yEsp));
+            }
+
+            foreach (var p in pontos)
+            {
+                if (p.X >= 0 && p.X < GridWidth && p.Y >= 0 && p.Y < GridHeight)
+                    DrawPreviewPixel(g, p.X, p.Y, cor);
+            }
+        }
 
         private void DrawPreviewPixel(Graphics g, int x, int y, Color cor)
         {
@@ -795,17 +820,16 @@ namespace PixelArtEditor
                 using (Brush previewBrush = new SolidBrush(CORPREFORMA))
                 {
                     // Linha superior e inferior
-                    for (int x = x1; x <= x2; x++)
-                    {
-                        g.FillRectangle(previewBrush, OffsetX + x * zoom, OffsetY + y1 * zoom, zoom, zoom);
-                        g.FillRectangle(previewBrush, OffsetX + x * zoom, OffsetY + y2 * zoom, zoom, zoom);
+                    for(int x = x1; x <= x2; x++)
+{
+                        DrawPreviewPixelComEspelho(g, x, y1, CORPREFORMA);
+                        DrawPreviewPixelComEspelho(g, x, y2, CORPREFORMA);
                     }
 
-                    // Linha esquerda e direita
                     for (int y = y1; y <= y2; y++)
                     {
-                        g.FillRectangle(previewBrush, OffsetX + x1 * zoom, OffsetY + y * zoom, zoom, zoom);
-                        g.FillRectangle(previewBrush, OffsetX + x2 * zoom, OffsetY + y * zoom, zoom, zoom);
+                        DrawPreviewPixelComEspelho(g, x1, y, CORPREFORMA);
+                        DrawPreviewPixelComEspelho(g, x2, y, CORPREFORMA);
                     }
                 }
             }
@@ -831,14 +855,15 @@ namespace PixelArtEditor
 
                 while (y >= x)
                 {
-                    DrawPreviewPixel(g, pontoInicial.Value.X + x, pontoInicial.Value.Y + y, CORPREFORMA);
-                    DrawPreviewPixel(g, pontoInicial.Value.X - x, pontoInicial.Value.Y + y, CORPREFORMA);
-                    DrawPreviewPixel(g, pontoInicial.Value.X + x, pontoInicial.Value.Y - y, CORPREFORMA);
-                    DrawPreviewPixel(g, pontoInicial.Value.X - x, pontoInicial.Value.Y - y, CORPREFORMA);
-                    DrawPreviewPixel(g, pontoInicial.Value.X + y, pontoInicial.Value.Y + x, CORPREFORMA);
-                    DrawPreviewPixel(g, pontoInicial.Value.X - y, pontoInicial.Value.Y + x, CORPREFORMA);
-                    DrawPreviewPixel(g, pontoInicial.Value.X + y, pontoInicial.Value.Y - x, CORPREFORMA);
-                    DrawPreviewPixel(g, pontoInicial.Value.X - y, pontoInicial.Value.Y - x, CORPREFORMA);
+                    DrawPreviewPixelComEspelho(g, pontoInicial.Value.X + x, pontoInicial.Value.Y + y, CORPREFORMA);
+                    DrawPreviewPixelComEspelho(g, pontoInicial.Value.X - x, pontoInicial.Value.Y + y, CORPREFORMA);
+                    DrawPreviewPixelComEspelho(g, pontoInicial.Value.X + x, pontoInicial.Value.Y - y, CORPREFORMA);
+                    DrawPreviewPixelComEspelho(g, pontoInicial.Value.X - x, pontoInicial.Value.Y - y, CORPREFORMA);
+                    DrawPreviewPixelComEspelho(g, pontoInicial.Value.X + y, pontoInicial.Value.Y + x, CORPREFORMA);
+                    DrawPreviewPixelComEspelho(g, pontoInicial.Value.X - y, pontoInicial.Value.Y + x, CORPREFORMA);
+                    DrawPreviewPixelComEspelho(g, pontoInicial.Value.X + y, pontoInicial.Value.Y - x, CORPREFORMA);
+                    DrawPreviewPixelComEspelho(g, pontoInicial.Value.X - y, pontoInicial.Value.Y - x, CORPREFORMA);
+
 
                     x++;
                     if (d > 0)
@@ -856,11 +881,9 @@ namespace PixelArtEditor
             if (ferramentaAtual == Ferramenta.Linha && pontoInicial.HasValue && pontoFinal.HasValue)
             {
                 Color corPreview = CORPREFORMA; // cor semi-transparente de preview
-                foreach (Point p in GetLinePoints(pontoInicial.Value.X, pontoInicial.Value.Y,
-                                                 pontoFinal.Value.X, pontoFinal.Value.Y))
-                {
-                    DrawPreviewPixel(e.Graphics, p.X, p.Y, corPreview);
-                }
+                foreach (Point p in GetLinePoints(pontoInicial.Value.X, pontoInicial.Value.Y, pontoFinal.Value.X, pontoFinal.Value.Y))
+                    DrawPreviewPixelComEspelho(e.Graphics, p.X, p.Y, CORPREFORMA);
+
             }
 
 
