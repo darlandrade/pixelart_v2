@@ -51,7 +51,7 @@ namespace PixelArtEditor
 
 
         // ==================== Ferramentas ====================
-        private enum Ferramenta { Lapiz, Borracha, Balde, Retangulo, Circulo, Linha }
+        private enum Ferramenta { Lapiz, Borracha, Balde, Retangulo, Circulo, Linha, ContaGotas, BaldeInteligente }
         private Ferramenta ferramentaAtual = Ferramenta.Lapiz;
         private Point? pontoFinal = null;
         private Point? pontoInicial = null;
@@ -388,6 +388,8 @@ namespace PixelArtEditor
             Button btnRetangulo = CriarBotaoFerramenta("▭ Retângulo", 130, Ferramenta.Retangulo);
             Button btnCirculo = CriarBotaoFerramenta("● Círculo", 170, Ferramenta.Circulo);
             Button btnLinha = CriarBotaoFerramenta("／ Linha", 210, Ferramenta.Linha);
+            Button btnContaGotas = CriarBotaoFerramenta("� eyedropper Conta-Gotas", 250, Ferramenta.ContaGotas);
+            Button btnBaldeInteligente = CriarBotaoFerramenta("🪣✨ Balde Inteligente", 290, Ferramenta.BaldeInteligente);
 
             // Adiciona ao painel
             panelLeft.Controls.Add(btnLapis);
@@ -396,6 +398,8 @@ namespace PixelArtEditor
             panelLeft.Controls.Add(btnRetangulo);
             panelLeft.Controls.Add(btnCirculo);
             panelLeft.Controls.Add(btnLinha);
+            panelLeft.Controls.Add(btnContaGotas);
+            panelLeft.Controls.Add(btnBaldeInteligente);
 
             // Define o botão ativo inicialmente
             SetActiveButton(btnLapis);
@@ -460,19 +464,65 @@ namespace PixelArtEditor
         // ==================== Eventos de desenho ====================
         private void PanelCanvas_MouseDown(object sender, MouseEventArgs e)
         {
-            if (e.Button != MouseButtons.Left && e.Button != MouseButtons.Right) return;
-
-            SalvarParaUndo();
-
             int x = (int)((e.X - OffsetX) / zoom);
             int y = (int)((e.Y - OffsetY) / zoom);
             if (x < 0 || x >= GridWidth || y < 0 || y >= GridHeight) return;
 
+            // ----------------- Conta-gotas -----------------
+            if (ferramentaAtual == Ferramenta.ContaGotas)
+            {
+                Color corClicada = canvasBitmap.GetPixel(x, y);
+
+                if (e.Button == MouseButtons.Left)
+                {
+                    drawColor = corClicada;
+                    colorPrimaryPanel.BackColor = drawColor;
+                }
+                else if (e.Button == MouseButtons.Right)
+                {
+                    secondaryColor = corClicada;
+                    colorSecondaryPanel.BackColor = secondaryColor;
+                }
+
+                // Adiciona a cor na paleta rápida apenas se ainda não existir
+                bool corExiste = false;
+                foreach (var p in quickColorPanels)
+                {
+                    if (p.BackColor.ToArgb() == corClicada.ToArgb())
+                    {
+                        corExiste = true;
+                        break;
+                    }
+                }
+
+                if (!corExiste)
+                    AdicionarCorRapida(corClicada);
+
+                return; // não desenhar
+            }
+
+
+            // ----------------- Outras ferramentas -----------------
+            if (e.Button != MouseButtons.Left && e.Button != MouseButtons.Right) return;
+
+            SalvarParaUndo();
+
+
+            // ----------------- Ferramentas de forma -----------------
             if (ferramentaAtual == Ferramenta.Retangulo || ferramentaAtual == Ferramenta.Circulo || ferramentaAtual == Ferramenta.Linha)
             {
                 pontoInicial = new Point(x, y);
                 pontoFinal = null;
             }
+            else if (ferramentaAtual == Ferramenta.BaldeInteligente)
+            {
+                Color corAlvo = canvasBitmap.GetPixel(x, y);
+                Color corNova = (e.Button == MouseButtons.Left) ? drawColor : secondaryColor;
+
+                if (corAlvo != corNova)
+                    BaldeInteligenteGlobal(corAlvo, corNova);
+            }
+
 
             else
             {
@@ -642,7 +692,6 @@ namespace PixelArtEditor
             panelCanvas.Invalidate();
         }
 
-
         private void Form1_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Oemplus || e.KeyCode == Keys.Add) zoom *= zoomIncrement;
@@ -657,9 +706,32 @@ namespace PixelArtEditor
             {
                 mostrarGrid = !mostrarGrid;
             }
+            if (e.KeyCode == Keys.Z)
+            {
+                Color corTemp = drawColor;
+                drawColor = secondaryColor;
+                secondaryColor = corTemp;
+
+                colorSecondaryPanel.BackColor = secondaryColor;
+                colorPrimaryPanel.BackColor = drawColor;
+            }
 
             panelCanvas.Invalidate();
         }
+        private void BaldeInteligenteGlobal(Color corAlvo, Color corNova)
+        {
+            for (int y = 0; y < GridHeight; y++)
+            {
+                for (int x = 0; x < GridWidth; x++)
+                {
+                    if (canvasBitmap.GetPixel(x, y) == corAlvo)
+                        SetPixelComEspelho(x, y, corNova);
+                }
+            }
+
+            panelCanvas.Invalidate();
+        }
+
 
         private void DrawPixel(Point p, MouseButtons botao = MouseButtons.Left)
         {
