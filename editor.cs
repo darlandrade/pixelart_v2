@@ -11,6 +11,10 @@ namespace PixelArtEditor
     {
         private static readonly Color FUNDOPADRAOBTN = Color.FromArgb(60, 60, 64);
         private static readonly Color MOUSEHOVERBTNCOLOR = Color.FromArgb(15, 62, 138);
+        private static readonly Color BTNATIVO = Color.DarkCyan;
+        private static readonly Color CORCANVAS1 = Color.LightGray;
+        private static readonly Color CORCANVAS2 = Color.Gray;
+        private static readonly Color CORPREFORMA = Color.FromArgb(100, 0, 255, 255);
 
         private const int GridWidth = 32;
         private const int GridHeight = 32;
@@ -54,6 +58,17 @@ namespace PixelArtEditor
         private Button btnBalde;
         private Bitmap previewBitmap = null;
 
+        // Flags globais
+        private Button btnEspelhoH;
+        private Button btnEspelhoV;
+        private Button btnEspelhoHV;
+        private enum Espelho { Nenhum, Horizontal, Vertical, Ambos }
+        private Espelho espelhoAtual = Espelho.Nenhum;
+
+        private bool espelhoH = false;
+        private bool espelhoV = false;
+
+
 
         public Form1()
         {
@@ -81,7 +96,7 @@ namespace PixelArtEditor
 
 
             // ==================== Painel direito ====================
-            panelRight = new Panel { Dock = DockStyle.Right, Width = 200, BackColor = Color.FromArgb(37, 37, 38) };
+            panelRight = new Panel { Dock = DockStyle.Right, Width = 200, BackColor = Color.FromArgb(45,45,48) };
             this.Controls.Add(panelRight);
 
             // Cor primária
@@ -115,8 +130,8 @@ namespace PixelArtEditor
                     Panel panelClicado = s as Panel;
                     if (panelClicado.BackColor == Color.Transparent) return;
 
-                    if (Control.ModifierKeys == Keys.Shift) // remove cor
-                        panelClicado.BackColor = Color.Transparent;
+                    if (Control.ModifierKeys == Keys.Shift && e.Button == MouseButtons.Left)
+                        RemoverCorRapida(panelClicado);
                     else if (e.Button == MouseButtons.Left)
                     {
                         drawColor = panelClicado.BackColor;
@@ -135,8 +150,67 @@ namespace PixelArtEditor
             for (int i = 0; i < coresPadrao.Length; i++)
                 quickColorPanels[i].BackColor = coresPadrao[i];
 
+            // ==================== Botões de Espelho ====================
+
+            // Define a posição logo abaixo da paleta
+            int espelhoStartY = startY + ((15 / 5) * (panelSize + padding)) + 20; // abaixo da última linha da paleta
+
+            int btnWidth = 50;
+            int btnHeight = 30;
+            int btnSpacing = 10;
+            int startX = 20;
+
+            // Botão Espelho Horizontal
+            btnEspelhoH = new Button
+            {
+                Text = "H",
+                Width = btnWidth,
+                Height = btnHeight,
+                Location = new Point(startX, espelhoStartY),
+                BackColor = FUNDOPADRAOBTN,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat
+            };
+            btnEspelhoH.FlatAppearance.BorderSize = 1;
+            btnEspelhoH.Click += BtnEspelhoH_Click;
+
+            // Botão Espelho Vertical
+            btnEspelhoV = new Button
+            {
+                Text = "V",
+                Width = btnWidth,
+                Height = btnHeight,
+                Location = new Point(startX + btnWidth + btnSpacing, espelhoStartY),
+                BackColor = FUNDOPADRAOBTN,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat
+            };
+            btnEspelhoV.FlatAppearance.BorderSize = 1;
+            btnEspelhoV.Click += BtnEspelhoV_Click;
+
+            // Botão Espelho HV
+            btnEspelhoHV = new Button
+            {
+                Text = "HV",
+                Width = btnWidth,
+                Height = btnHeight,
+                Location = new Point(startX + (btnWidth + btnSpacing) * 2, espelhoStartY),
+                BackColor = FUNDOPADRAOBTN,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat
+            };
+            btnEspelhoHV.FlatAppearance.BorderSize = 1;
+            btnEspelhoHV.Click += BtnEspelhoHV_Click;
+
+            // Adiciona ao painel direito
+            panelRight.Controls.Add(btnEspelhoH);
+            panelRight.Controls.Add(btnEspelhoV);
+            panelRight.Controls.Add(btnEspelhoHV);
+
+
+
             // ==================== Painel inferior ====================
-            panelBottom = new Panel { Dock = DockStyle.Bottom, Height = 50, BackColor = Color.FromArgb(30, 30, 30) };
+            panelBottom = new Panel { Dock = DockStyle.Bottom, Height = 50, BackColor = Color.FromArgb(45,45,48) };
             this.Controls.Add(panelBottom);
 
             btnNovo = new Button { Text = "Novo", Width = 100, Height = 30, Location = new Point(10, 10) };
@@ -158,7 +232,87 @@ namespace PixelArtEditor
 
             this.KeyDown += Form1_KeyDown;
         }
+        // ==================== Funções de espelho ====================
+        private void SetActiveMirrorButton(Button botao)
+        {
+            // Se o botão clicado já representa o espelho ativo, desativa
+            if ((botao == btnEspelhoH && espelhoAtual == Espelho.Horizontal) ||
+                (botao == btnEspelhoV && espelhoAtual == Espelho.Vertical) ||
+                (botao == btnEspelhoHV && espelhoAtual == Espelho.Ambos))
+            {
+                espelhoAtual = Espelho.Nenhum;
+                btnEspelhoH.BackColor = FUNDOPADRAOBTN;
+                btnEspelhoV.BackColor = FUNDOPADRAOBTN;
+                btnEspelhoHV.BackColor = FUNDOPADRAOBTN;
+                return;
+            }
 
+            // Define novo espelho ativo
+            btnEspelhoH.BackColor = (botao == btnEspelhoH) ? BTNATIVO : FUNDOPADRAOBTN;
+            btnEspelhoV.BackColor = (botao == btnEspelhoV) ? BTNATIVO : FUNDOPADRAOBTN;
+            btnEspelhoHV.BackColor = (botao == btnEspelhoHV) ? BTNATIVO : FUNDOPADRAOBTN;
+
+            if (botao == btnEspelhoH) espelhoAtual = Espelho.Horizontal;
+            else if (botao == btnEspelhoV) espelhoAtual = Espelho.Vertical;
+            else if (botao == btnEspelhoHV) espelhoAtual = Espelho.Ambos;
+        }
+        private void BtnEspelhoH_Click(object sender, EventArgs e)
+        {
+            espelhoH = true;
+            espelhoV = false;
+            SetActiveMirrorButton(btnEspelhoH);
+        }
+
+        private void BtnEspelhoV_Click(object sender, EventArgs e)
+        {
+            espelhoH = false;
+            espelhoV = true;
+            SetActiveMirrorButton(btnEspelhoV);
+        }
+
+        private void BtnEspelhoHV_Click(object sender, EventArgs e)
+        {
+            espelhoH = true;
+            espelhoV = true;
+            SetActiveMirrorButton(btnEspelhoHV);
+        }
+
+        private void SetPixelComEspelho(int x, int y, Color cor)
+        {
+            List<Point> pontos = new List<Point>();
+
+            // Sempre o ponto original
+            pontos.Add(new Point(x, y));
+
+            // Calcula as coordenadas espelhadas
+            int xEspelhado = GridWidth - 1 - x;
+            int yEspelhado = GridHeight - 1 - y;
+
+            // Espelho horizontal: espelha no eixo vertical (inverte X)
+            if (espelhoH && !espelhoV)
+            {
+                pontos.Add(new Point(xEspelhado, y));
+            }
+            // Espelho vertical: espelha no eixo horizontal (inverte Y)
+            else if (!espelhoH && espelhoV)
+            {
+                pontos.Add(new Point(x, yEspelhado));
+            }
+            // Espelho duplo: faz os dois
+            else if (espelhoH && espelhoV)
+            {
+                pontos.Add(new Point(xEspelhado, y));      // horizontal
+                pontos.Add(new Point(x, yEspelhado));      // vertical
+                pontos.Add(new Point(xEspelhado, yEspelhado)); // ambos
+            }
+
+            // Desenha os pontos válidos
+            foreach (var p in pontos)
+            {
+                if (p.X >= 0 && p.X < GridWidth && p.Y >= 0 && p.Y < GridHeight)
+                    canvasBitmap.SetPixel(p.X, p.Y, cor);
+            }
+        }
         // ==================== Funções auxiliares ====================
         private Panel CriarPainelCor(Color cor, int x, int y)
         {
@@ -186,7 +340,7 @@ namespace PixelArtEditor
                 }
             }
         }
-
+        // Adiciona a cor na paleta rápida se houver espaço
         private void AdicionarCorRapida(Color cor)
         {
             foreach (var p in quickColorPanels)
@@ -197,6 +351,24 @@ namespace PixelArtEditor
                     break;
                 }
             }
+        }
+        // Remove a cor do painel clicado e desloca as cores à direita
+        private void RemoverCorRapida(Panel panelClicado)
+        {
+            int index = Array.IndexOf(quickColorPanels, panelClicado);
+            if (index == -1) return;
+
+            // Remove a cor do painel clicado
+            panelClicado.BackColor = Color.Transparent;
+
+            // Desloca as cores à direita para preencher o espaço
+            for (int i = index; i < quickColorPanels.Length - 1; i++)
+            {
+                quickColorPanels[i].BackColor = quickColorPanels[i + 1].BackColor;
+            }
+
+            // Último painel fica transparente
+            quickColorPanels[quickColorPanels.Length - 1].BackColor = Color.Transparent;
         }
 
         // ===============================
@@ -252,8 +424,6 @@ namespace PixelArtEditor
             return btn;
         }
 
-
-
         private void SetActiveButton(Button activeBtn)
         {
             foreach (var ctrl in panelLeft.Controls)
@@ -284,66 +454,62 @@ namespace PixelArtEditor
         // ==================== Eventos de desenho ====================
         private void PanelCanvas_MouseDown(object sender, MouseEventArgs e)
         {
-            if (e.Button == MouseButtons.Left || e.Button == MouseButtons.Right)
+            if (e.Button != MouseButtons.Left && e.Button != MouseButtons.Right) return;
+
+            SalvarParaUndo();
+
+            int x = (int)((e.X - OffsetX) / zoom);
+            int y = (int)((e.Y - OffsetY) / zoom);
+            if (x < 0 || x >= GridWidth || y < 0 || y >= GridHeight) return;
+
+            if (ferramentaAtual == Ferramenta.Retangulo || ferramentaAtual == Ferramenta.Circulo)
             {
-                SalvarParaUndo();
-
-                int x = (int)((e.X - OffsetX) / zoom);
-                int y = (int)((e.Y - OffsetY) / zoom);
-                if (x < 0 || x >= GridWidth || y < 0 || y >= GridHeight) return;
-
-                if (ferramentaAtual == Ferramenta.Retangulo || ferramentaAtual == Ferramenta.Circulo)
-                {
-                    pontoInicial = new Point(x, y);
-                    pontoFinal = null; // para usar no preview
-                }
-                else
-                {
-                    isDrawing = true;
-                    DrawPixel(e.Location, e.Button);
-                }
-
-                panelCanvas.Invalidate();
+                pontoInicial = new Point(x, y);
+                pontoFinal = null;
             }
+            else
+            {
+                isDrawing = true;
+                DrawPixel(new Point(x, y), e.Button);
+            }
+
+            panelCanvas.Invalidate();
         }
 
         private void PanelCanvas_MouseMove(object sender, MouseEventArgs e)
         {
             MousePositionCanvas = e.Location;
 
+            int x = (int)((e.X - OffsetX) / zoom);
+            int y = (int)((e.Y - OffsetY) / zoom);
+            x = Math.Max(0, Math.Min(GridWidth - 1, x));
+            y = Math.Max(0, Math.Min(GridHeight - 1, y));
+
             if ((ferramentaAtual == Ferramenta.Retangulo || ferramentaAtual == Ferramenta.Circulo) && pontoInicial.HasValue)
             {
-                panelCanvas.Invalidate(); // redesenha o preview do retângulo ou círculo
+                pontoFinal = new Point(x, y);
+                panelCanvas.Invalidate(); // redesenha o preview
             }
             else if (isDrawing)
             {
-                DrawPixel(e.Location, e.Button);
+                // 🔧 Corrigido: detectar qual botão está pressionado
+                if (Control.MouseButtons == MouseButtons.Left)
+                    DrawPixel(new Point(x, y), MouseButtons.Left);
+                else if (Control.MouseButtons == MouseButtons.Right)
+                    DrawPixel(new Point(x, y), MouseButtons.Right);
             }
         }
 
         private void PanelCanvas_MouseUp(object sender, MouseEventArgs e)
         {
-            int mouseX = (int)((e.X - OffsetX) / zoom);
-            int mouseY = (int)((e.Y - OffsetY) / zoom);
-            mouseX = Math.Max(0, Math.Min(GridWidth - 1, mouseX));
-            mouseY = Math.Max(0, Math.Min(GridHeight - 1, mouseY));
-
-            if (ferramentaAtual == Ferramenta.Retangulo && pontoInicial.HasValue)
+            if ((ferramentaAtual == Ferramenta.Retangulo || ferramentaAtual == Ferramenta.Circulo) && pontoInicial.HasValue && pontoFinal.HasValue)
             {
-                pontoFinal = new Point(mouseX, mouseY);
-                Color corRetangulo = (e.Button == MouseButtons.Left) ? drawColor : secondaryColor;
-                DesenharRetangulo(pontoInicial.Value, pontoFinal.Value, corRetangulo);
+                Color corAtual = (e.Button == MouseButtons.Left) ? drawColor : secondaryColor;
 
-                pontoInicial = null;
-                pontoFinal = null;
-                panelCanvas.Invalidate();
-            }
-            else if (ferramentaAtual == Ferramenta.Circulo && pontoInicial.HasValue)
-            {
-                Point centro = pontoInicial.Value;
-                Point borda = new Point(mouseX, mouseY);
-                Color corCirculo = (e.Button == MouseButtons.Left) ? drawColor : secondaryColor;
-                DesenharCirculo(centro, borda, corCirculo);
+                if (ferramentaAtual == Ferramenta.Retangulo)
+                    DesenharRetangulo(pontoInicial.Value, pontoFinal.Value, corAtual);
+                else if (ferramentaAtual == Ferramenta.Circulo)
+                    DesenharCirculo(pontoInicial.Value, pontoFinal.Value, corAtual);
 
                 pontoInicial = null;
                 pontoFinal = null;
@@ -352,50 +518,10 @@ namespace PixelArtEditor
 
             isDrawing = false;
 
-            // Limpa pontoFinal do lápis/borracha
             if (ferramentaAtual == Ferramenta.Lapiz || ferramentaAtual == Ferramenta.Borracha)
                 pontoFinal = null;
         }
 
-
-
-        private void AtualizarRetangulo(Point mouseLocation)
-        {
-            if (!pontoInicial.HasValue)
-                return;
-
-            var offsetX = (panelCanvas.ClientSize.Width - GridWidth * zoom) / 2;
-            var offsetY = (panelCanvas.ClientSize.Height - GridHeight * zoom) / 2;
-
-            int x = (int)((mouseLocation.X - offsetX) / zoom);
-            int y = (int)((mouseLocation.Y - offsetY) / zoom);
-
-            // Evita desenhar fora dos limites
-            if (x < 0 || x >= GridWidth || y < 0 || y >= GridHeight)
-                return;
-
-            pontoFinal = new Point(x, y);
-
-            // Cria uma cópia temporária do bitmap para o preview
-            if (previewBitmap == null)
-                previewBitmap = (Bitmap)canvasBitmap.Clone();
-
-            Bitmap temp = (Bitmap)previewBitmap.Clone();
-            using (Graphics g = Graphics.FromImage(temp))
-            using (Pen pen = new Pen(drawColor))
-            {
-                int x1 = Math.Min(pontoInicial.Value.X, pontoFinal.Value.X);
-                int y1 = Math.Min(pontoInicial.Value.Y, pontoFinal.Value.Y);
-                int x2 = Math.Max(pontoInicial.Value.X, pontoFinal.Value.X);
-                int y2 = Math.Max(pontoInicial.Value.Y, pontoFinal.Value.Y);
-
-                g.DrawRectangle(pen, x1, y1, x2 - x1, y2 - y1);
-            }
-
-            // Mostra o preview
-            panelCanvas.BackgroundImage = new Bitmap(temp);
-            panelCanvas.BackgroundImageLayout = ImageLayout.None;
-        }
         private void DesenharCirculo(Point centro, Point borda, Color cor)
         {
             int radius = (int)Math.Round(Math.Sqrt(
@@ -408,37 +534,27 @@ namespace PixelArtEditor
 
             while (y >= x)
             {
-                // Oito octantes
-                SetPixelSeguro(centro.X + x, centro.Y + y, cor);
-                SetPixelSeguro(centro.X - x, centro.Y + y, cor);
-                SetPixelSeguro(centro.X + x, centro.Y - y, cor);
-                SetPixelSeguro(centro.X - x, centro.Y - y, cor);
-                SetPixelSeguro(centro.X + y, centro.Y + x, cor);
-                SetPixelSeguro(centro.X - y, centro.Y + x, cor);
-                SetPixelSeguro(centro.X + y, centro.Y - x, cor);
-                SetPixelSeguro(centro.X - y, centro.Y - x, cor);
+                SetPixelComEspelho(centro.X + x, centro.Y + y, cor);
+                SetPixelComEspelho(centro.X - x, centro.Y + y, cor);
+                SetPixelComEspelho(centro.X + x, centro.Y - y, cor);
+                SetPixelComEspelho(centro.X - x, centro.Y - y, cor);
+                SetPixelComEspelho(centro.X + y, centro.Y + x, cor);
+                SetPixelComEspelho(centro.X - y, centro.Y + x, cor);
+                SetPixelComEspelho(centro.X + y, centro.Y - x, cor);
+                SetPixelComEspelho(centro.X - y, centro.Y - x, cor);
 
                 x++;
                 if (d > 0)
                 {
                     y--;
-                    d = d + 4 * (x - y) + 10;
+                    d += 4 * (x - y) + 10;
                 }
                 else
                 {
-                    d = d + 4 * x + 6;
+                    d += 4 * x + 6;
                 }
             }
         }
-
-        // Função auxiliar para evitar exceções de limite
-        private void SetPixelSeguro(int x, int y, Color cor)
-        {
-            if (x >= 0 && x < GridWidth && y >= 0 && y < GridHeight)
-                canvasBitmap.SetPixel(x, y, cor);
-        }
-
-
         private void DesenharRetangulo(Point inicio, Point fim, Color cor)
         {
             int x1 = Math.Min(inicio.X, fim.X);
@@ -448,16 +564,15 @@ namespace PixelArtEditor
 
             for (int x = x1; x <= x2; x++)
             {
-                if (y1 >= 0 && y1 < GridHeight) canvasBitmap.SetPixel(x, y1, cor);
-                if (y2 >= 0 && y2 < GridHeight) canvasBitmap.SetPixel(x, y2, cor);
+                SetPixelComEspelho(x, y1, cor);
+                SetPixelComEspelho(x, y2, cor);
             }
             for (int y = y1; y <= y2; y++)
             {
-                if (x1 >= 0 && x1 < GridWidth) canvasBitmap.SetPixel(x1, y, cor);
-                if (x2 >= 0 && x2 < GridWidth) canvasBitmap.SetPixel(x2, y, cor);
+                SetPixelComEspelho(x1, y, cor);
+                SetPixelComEspelho(x2, y, cor);
             }
         }
-
 
         private void PanelCanvas_MouseWheel(object sender, MouseEventArgs e)
         {
@@ -479,39 +594,32 @@ namespace PixelArtEditor
             panelCanvas.Invalidate();
         }
 
-        private void DrawPixel(Point mouseLocation, MouseButtons botao = MouseButtons.Left)
+        private void DrawPixel(Point p, MouseButtons botao = MouseButtons.Left)
         {
-            int x = (int)((mouseLocation.X - OffsetX) / zoom);
-            int y = (int)((mouseLocation.Y - OffsetY) / zoom);
-            if (x < 0 || x >= GridWidth || y < 0 || y >= GridHeight) return;
-
             Color corAtual = (botao == MouseButtons.Left) ? drawColor : secondaryColor;
 
             if (ferramentaAtual == Ferramenta.Balde)
             {
-                Color corOriginal = canvasBitmap.GetPixel(x, y);
-                PreencherArea(x, y, corOriginal, corAtual);
+                Color corOriginal = canvasBitmap.GetPixel(p.X, p.Y);
+                PreencherArea(p.X, p.Y, corOriginal, corAtual);
             }
-            else
+            else if (ferramentaAtual == Ferramenta.Borracha)
             {
-                if (ferramentaAtual == Ferramenta.Borracha)
-                    corAtual = Color.FromArgb(0, 0, 0, 0);
-
-                Point currentPoint = new Point(x, y);
-
+                SetPixelComEspelho(p.X, p.Y, Color.Transparent); // Transparente
+            }
+            else // lápis ou desenho contínuo
+            {
                 if (pontoFinal == null)
-                    canvasBitmap.SetPixel(currentPoint.X, currentPoint.Y, corAtual);
+                    SetPixelComEspelho(p.X, p.Y, corAtual);
                 else
-                    DrawLineOnBitmap(pontoFinal.Value, currentPoint, corAtual);
-
-                pontoFinal = currentPoint;
+                    DrawLineOnBitmapComEspelho(pontoFinal.Value, p, corAtual);
             }
 
+            pontoFinal = p;
             panelCanvas.Invalidate();
         }
 
-
-        private void DrawLineOnBitmap(Point p1, Point p2, Color cor)
+        private void DrawLineOnBitmapComEspelho(Point p1, Point p2, Color cor)
         {
             int dx = Math.Abs(p2.X - p1.X), dy = Math.Abs(p2.Y - p1.Y);
             int sx = p1.X < p2.X ? 1 : -1, sy = p1.Y < p2.Y ? 1 : -1;
@@ -520,8 +628,7 @@ namespace PixelArtEditor
 
             while (true)
             {
-                if (x0 >= 0 && x0 < GridWidth && y0 >= 0 && y0 < GridHeight)
-                    canvasBitmap.SetPixel(x0, y0, cor);
+                SetPixelComEspelho(x0, y0, cor);
                 if (x0 == p2.X && y0 == p2.Y) break;
                 int e2 = 2 * err;
                 if (e2 > -dy) { err -= dy; x0 += sx; }
@@ -566,8 +673,8 @@ namespace PixelArtEditor
 
             // ==================== Fundo quadriculado ====================
             int tamanhoQuad = (int)zoom / 2;
-            using (Brush lightBrush = new SolidBrush(Color.FromArgb(180, 180, 180)))
-            using (Brush darkBrush = new SolidBrush(Color.FromArgb(220, 220, 220)))
+            using (Brush lightBrush = new SolidBrush(CORCANVAS1))
+            using (Brush darkBrush = new SolidBrush(CORCANVAS2))
             {
                 for (int y = 0; y < GridHeight; y++)
                 {
@@ -615,7 +722,7 @@ namespace PixelArtEditor
                 int y1 = Math.Min(pontoInicial.Value.Y, mouseY);
                 int y2 = Math.Max(pontoInicial.Value.Y, mouseY);
 
-                using (Brush previewBrush = new SolidBrush(Color.FromArgb(200, drawColor)))
+                using (Brush previewBrush = new SolidBrush(CORPREFORMA))
                 {
                     // Linha superior e inferior
                     for (int x = x1; x <= x2; x++)
@@ -651,18 +758,17 @@ namespace PixelArtEditor
                 int y = radius;
                 int d = 3 - 2 * radius;
 
-                Color corPreview = Color.FromArgb(200, drawColor);
 
                 while (y >= x)
                 {
-                    DrawPreviewPixel(g, pontoInicial.Value.X + x, pontoInicial.Value.Y + y, corPreview);
-                    DrawPreviewPixel(g, pontoInicial.Value.X - x, pontoInicial.Value.Y + y, corPreview);
-                    DrawPreviewPixel(g, pontoInicial.Value.X + x, pontoInicial.Value.Y - y, corPreview);
-                    DrawPreviewPixel(g, pontoInicial.Value.X - x, pontoInicial.Value.Y - y, corPreview);
-                    DrawPreviewPixel(g, pontoInicial.Value.X + y, pontoInicial.Value.Y + x, corPreview);
-                    DrawPreviewPixel(g, pontoInicial.Value.X - y, pontoInicial.Value.Y + x, corPreview);
-                    DrawPreviewPixel(g, pontoInicial.Value.X + y, pontoInicial.Value.Y - x, corPreview);
-                    DrawPreviewPixel(g, pontoInicial.Value.X - y, pontoInicial.Value.Y - x, corPreview);
+                    DrawPreviewPixel(g, pontoInicial.Value.X + x, pontoInicial.Value.Y + y, CORPREFORMA);
+                    DrawPreviewPixel(g, pontoInicial.Value.X - x, pontoInicial.Value.Y + y, CORPREFORMA);
+                    DrawPreviewPixel(g, pontoInicial.Value.X + x, pontoInicial.Value.Y - y, CORPREFORMA);
+                    DrawPreviewPixel(g, pontoInicial.Value.X - x, pontoInicial.Value.Y - y, CORPREFORMA);
+                    DrawPreviewPixel(g, pontoInicial.Value.X + y, pontoInicial.Value.Y + x, CORPREFORMA);
+                    DrawPreviewPixel(g, pontoInicial.Value.X - y, pontoInicial.Value.Y + x, CORPREFORMA);
+                    DrawPreviewPixel(g, pontoInicial.Value.X + y, pontoInicial.Value.Y - x, CORPREFORMA);
+                    DrawPreviewPixel(g, pontoInicial.Value.X - y, pontoInicial.Value.Y - x, CORPREFORMA);
 
                     x++;
                     if (d > 0)
