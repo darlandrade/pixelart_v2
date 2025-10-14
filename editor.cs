@@ -292,10 +292,10 @@ namespace PixelArtEditor
                 int y = (int)((e.Y - OffsetY) / zoom);
                 if (x < 0 || x >= GridWidth || y < 0 || y >= GridHeight) return;
 
-                if (ferramentaAtual == Ferramenta.Retangulo)
+                if (ferramentaAtual == Ferramenta.Retangulo || ferramentaAtual == Ferramenta.Circulo)
                 {
                     pontoInicial = new Point(x, y);
-                    pontoFinal = null;
+                    pontoFinal = null; // para usar no preview
                 }
                 else
                 {
@@ -307,21 +307,56 @@ namespace PixelArtEditor
             }
         }
 
-
         private void PanelCanvas_MouseMove(object sender, MouseEventArgs e)
         {
             MousePositionCanvas = e.Location;
 
-            if (ferramentaAtual == Ferramenta.Retangulo && pontoInicial.HasValue)
+            if ((ferramentaAtual == Ferramenta.Retangulo || ferramentaAtual == Ferramenta.Circulo) && pontoInicial.HasValue)
             {
-
-                panelCanvas.Invalidate(); // forçar redesenho do preview
+                panelCanvas.Invalidate(); // redesenha o preview do retângulo ou círculo
             }
             else if (isDrawing)
             {
                 DrawPixel(e.Location, e.Button);
             }
         }
+
+        private void PanelCanvas_MouseUp(object sender, MouseEventArgs e)
+        {
+            int mouseX = (int)((e.X - OffsetX) / zoom);
+            int mouseY = (int)((e.Y - OffsetY) / zoom);
+            mouseX = Math.Max(0, Math.Min(GridWidth - 1, mouseX));
+            mouseY = Math.Max(0, Math.Min(GridHeight - 1, mouseY));
+
+            if (ferramentaAtual == Ferramenta.Retangulo && pontoInicial.HasValue)
+            {
+                pontoFinal = new Point(mouseX, mouseY);
+                Color corRetangulo = (e.Button == MouseButtons.Left) ? drawColor : secondaryColor;
+                DesenharRetangulo(pontoInicial.Value, pontoFinal.Value, corRetangulo);
+
+                pontoInicial = null;
+                pontoFinal = null;
+                panelCanvas.Invalidate();
+            }
+            else if (ferramentaAtual == Ferramenta.Circulo && pontoInicial.HasValue)
+            {
+                Point centro = pontoInicial.Value;
+                Point borda = new Point(mouseX, mouseY);
+                Color corCirculo = (e.Button == MouseButtons.Left) ? drawColor : secondaryColor;
+                DesenharCirculo(centro, borda, corCirculo);
+
+                pontoInicial = null;
+                pontoFinal = null;
+                panelCanvas.Invalidate();
+            }
+
+            isDrawing = false;
+
+            // Limpa pontoFinal do lápis/borracha
+            if (ferramentaAtual == Ferramenta.Lapiz || ferramentaAtual == Ferramenta.Borracha)
+                pontoFinal = null;
+        }
+
 
 
         private void AtualizarRetangulo(Point mouseLocation)
@@ -361,56 +396,6 @@ namespace PixelArtEditor
             panelCanvas.BackgroundImage = new Bitmap(temp);
             panelCanvas.BackgroundImageLayout = ImageLayout.None;
         }
-
-
-        private void PanelCanvas_MouseUp(object sender, MouseEventArgs e)
-        {
-            if (ferramentaAtual == Ferramenta.Retangulo && pontoInicial.HasValue)
-            {
-                int mouseX = (int)((e.X - OffsetX) / zoom);
-                int mouseY = (int)((e.Y - OffsetY) / zoom);
-
-                pontoFinal = new Point(
-                    Math.Max(0, Math.Min(GridWidth - 1, mouseX)),
-                    Math.Max(0, Math.Min(GridHeight - 1, mouseY))
-                );
-
-                // Escolhe cor de acordo com o botão do mouse
-                Color corRetangulo = (e.Button == MouseButtons.Left) ? drawColor : secondaryColor;
-
-                // Desenha o contorno
-                DesenharRetangulo(pontoInicial.Value, pontoFinal.Value, corRetangulo);
-
-                pontoInicial = null;
-                pontoFinal = null;
-
-                panelCanvas.Invalidate();
-            }
-            else if (ferramentaAtual == Ferramenta.Circulo && pontoFinal.HasValue)
-            {
-                int mouseX = (int)((e.X - OffsetX) / zoom);
-                int mouseY = (int)((e.Y - OffsetY) / zoom);
-                Point centro = pontoFinal.Value;
-                Point borda = new Point(
-                    Math.Max(0, Math.Min(GridWidth - 1, mouseX)),
-                    Math.Max(0, Math.Min(GridHeight - 1, mouseY))
-                );
-                // Escolhe cor de acordo com o botão do mouse
-                Color corCirculo = (e.Button == MouseButtons.Left) ? drawColor : secondaryColor;
-                // Desenha o círculo
-                DesenharCirculo(centro, borda, corCirculo);
-                pontoFinal = null;
-                panelCanvas.Invalidate();
-            }
-
-            isDrawing = false;
-
-            // Limpa o pontoFinal do lápis somente se a ferramenta é lápis ou borracha
-            if (ferramentaAtual == Ferramenta.Lapiz || ferramentaAtual == Ferramenta.Borracha)
-                pontoFinal = null;
-        }
-
-
         private void DesenharCirculo(Point centro, Point borda, Color cor)
         {
             int radius = (int)Math.Round(Math.Sqrt(
@@ -496,14 +481,10 @@ namespace PixelArtEditor
 
         private void DrawPixel(Point mouseLocation, MouseButtons botao = MouseButtons.Left)
         {
-            var offsetX = (panelCanvas.ClientSize.Width - GridWidth * zoom) / 2;
-            var offsetY = (panelCanvas.ClientSize.Height - GridHeight * zoom) / 2;
-
-            int x = (int)((mouseLocation.X - offsetX) / zoom);
-            int y = (int)((mouseLocation.Y - offsetY) / zoom);
+            int x = (int)((mouseLocation.X - OffsetX) / zoom);
+            int y = (int)((mouseLocation.Y - OffsetY) / zoom);
             if (x < 0 || x >= GridWidth || y < 0 || y >= GridHeight) return;
 
-            Point currentPoint = new Point(x, y);
             Color corAtual = (botao == MouseButtons.Left) ? drawColor : secondaryColor;
 
             if (ferramentaAtual == Ferramenta.Balde)
@@ -516,6 +497,8 @@ namespace PixelArtEditor
                 if (ferramentaAtual == Ferramenta.Borracha)
                     corAtual = Color.FromArgb(0, 0, 0, 0);
 
+                Point currentPoint = new Point(x, y);
+
                 if (pontoFinal == null)
                     canvasBitmap.SetPixel(currentPoint.X, currentPoint.Y, corAtual);
                 else
@@ -526,6 +509,7 @@ namespace PixelArtEditor
 
             panelCanvas.Invalidate();
         }
+
 
         private void DrawLineOnBitmap(Point p1, Point p2, Color cor)
         {
@@ -569,6 +553,11 @@ namespace PixelArtEditor
             panelCanvas.Invalidate();
         }
 
+        private void DrawPreviewPixel(Graphics g, int x, int y, Color cor)
+        {
+            if (x >= 0 && x < GridWidth && y >= 0 && y < GridHeight)
+                g.FillRectangle(new SolidBrush(cor), OffsetX + x * zoom, OffsetY + y * zoom, zoom, zoom);
+        }
         private void PanelCanvas_Paint(object sender, PaintEventArgs e)
         {
             var g = e.Graphics;
@@ -644,50 +633,50 @@ namespace PixelArtEditor
                 }
             }
             // ==================== Preview do círculo ====================
-            if (ferramentaAtual == Ferramenta.Circulo && pontoFinal.HasValue)
+            if (ferramentaAtual == Ferramenta.Circulo && pontoInicial.HasValue)
             {
                 int mouseX = (int)((MousePositionCanvas.X - OffsetX) / zoom);
                 int mouseY = (int)((MousePositionCanvas.Y - OffsetY) / zoom);
-                Point centro = pontoFinal.Value;
-                Point borda = new Point(
+                Point mousePoint = new Point(
                     Math.Max(0, Math.Min(GridWidth - 1, mouseX)),
                     Math.Max(0, Math.Min(GridHeight - 1, mouseY))
                 );
+
                 int radius = (int)Math.Round(Math.Sqrt(
-                    Math.Pow(borda.X - centro.X, 2) + Math.Pow(borda.Y - centro.Y, 2)
+                    Math.Pow(mousePoint.X - pontoInicial.Value.X, 2) +
+                    Math.Pow(mousePoint.Y - pontoInicial.Value.Y, 2)
                 ));
+
                 int x = 0;
                 int y = radius;
                 int d = 3 - 2 * radius;
-                using (Brush previewBrush = new SolidBrush(Color.FromArgb(200, drawColor)))
-                {
-                    while (y >= x)
-                    {
-                        // Oito octantes
-                        g.FillRectangle(previewBrush, OffsetX + (centro.X + x) * zoom, OffsetY + (centro.Y + y) * zoom, zoom, zoom);
-                        g.FillRectangle(previewBrush, OffsetX + (centro.X - x) * zoom, OffsetY + (centro.Y + y) * zoom, zoom, zoom);
-                        g.FillRectangle(previewBrush, OffsetX + (centro.X + x) * zoom, OffsetY + (centro.Y - y) * zoom, zoom, zoom);
-                        g.FillRectangle(previewBrush, OffsetX + (centro.X - x) * zoom, OffsetY + (centro.Y - y) * zoom, zoom, zoom);
-                        g.FillRectangle(previewBrush, OffsetX + (centro.X + y) * zoom, OffsetY + (centro.Y + x) * zoom, zoom, zoom);
-                        g.FillRectangle(previewBrush, OffsetX + (centro.X - y) * zoom, OffsetY + (centro.Y + x) * zoom, zoom, zoom);
-                        g.FillRectangle(previewBrush, OffsetX + (centro.X + y) * zoom, OffsetY + (centro.Y - x) * zoom, zoom, zoom);
-                        g.FillRectangle(previewBrush, OffsetX + (centro.X - y) * zoom, OffsetY + (centro.Y - x) * zoom, zoom, zoom);
 
-                    }
+                Color corPreview = Color.FromArgb(200, drawColor);
+
+                while (y >= x)
+                {
+                    DrawPreviewPixel(g, pontoInicial.Value.X + x, pontoInicial.Value.Y + y, corPreview);
+                    DrawPreviewPixel(g, pontoInicial.Value.X - x, pontoInicial.Value.Y + y, corPreview);
+                    DrawPreviewPixel(g, pontoInicial.Value.X + x, pontoInicial.Value.Y - y, corPreview);
+                    DrawPreviewPixel(g, pontoInicial.Value.X - x, pontoInicial.Value.Y - y, corPreview);
+                    DrawPreviewPixel(g, pontoInicial.Value.X + y, pontoInicial.Value.Y + x, corPreview);
+                    DrawPreviewPixel(g, pontoInicial.Value.X - y, pontoInicial.Value.Y + x, corPreview);
+                    DrawPreviewPixel(g, pontoInicial.Value.X + y, pontoInicial.Value.Y - x, corPreview);
+                    DrawPreviewPixel(g, pontoInicial.Value.X - y, pontoInicial.Value.Y - x, corPreview);
+
                     x++;
                     if (d > 0)
                     {
                         y--;
-                        d = d + 4 * (x - y) + 10;
+                        d += 4 * (x - y) + 10;
                     }
                     else
                     {
-                        d = d + 4 * x + 6;
+                        d += 4 * x + 6;
                     }
-
-
                 }
             }
         }
+
     }
 }
