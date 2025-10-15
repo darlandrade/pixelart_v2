@@ -5,6 +5,9 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Svg;
+using System.Drawing;
+using System.Windows.Forms;
 
 namespace PixelArtEditor
 {
@@ -51,7 +54,6 @@ namespace PixelArtEditor
         private Point MousePositionCanvas;
 
 
-
         // ==================== Ferramentas ====================
         private enum Ferramenta { Lapiz, Borracha, Balde, Retangulo, Circulo, Linha, ContaGotas, BaldeInteligente }
         private Ferramenta ferramentaAtual = Ferramenta.Lapiz;
@@ -73,6 +75,9 @@ namespace PixelArtEditor
         private bool espelhoH = false;
         private bool espelhoV = false;
 
+        // Inicializa o ToolTip
+        private ToolTip toolTip;
+
 
 
         public Form1()
@@ -84,10 +89,34 @@ namespace PixelArtEditor
             this.KeyPreview = true;
             this.Text = mostrarGrid ? "Pixel Art Editor - Grid ON (Ctrl+G para alternar)" : "Pixel Art Editor - Grid OFF (Ctrl+G para alternar)";
 
+            toolTip = new ToolTip();
+            toolTip.AutoPopDelay = 5000;
+            toolTip.InitialDelay = 500;
+            toolTip.ReshowDelay = 100;
+            toolTip.ShowAlways = true;
+
             canvasBitmap = new Bitmap(GridWidth, GridHeight);
             CriarLayout();
-        }
 
+            
+
+
+        }
+        private void SetButtonSvg(Button btn, string caminhoSvg, int largura = 48, int altura = 48)
+        {
+            try
+            {
+                SvgDocument svgDoc = SvgDocument.Open(caminhoSvg);
+                Bitmap bmp = svgDoc.Draw(largura, altura); // cria bitmap do tamanho desejado
+                btn.Image = bmp;
+                btn.ImageAlign = ContentAlignment.MiddleLeft; // ajusta a posição da imagem
+                btn.TextImageRelation = TextImageRelation.ImageBeforeText; // texto depois da imagem
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Erro ao carregar SVG: {ex.Message}");
+            }
+        }
         private void CriarLayout()
         {
             // ==================== Painel esquerdo ====================
@@ -235,6 +264,10 @@ namespace PixelArtEditor
             AddHoverEffect(btnEspelhoH);
             AddHoverEffect(btnEspelhoV);
             AddHoverEffect(btnEspelhoHV);
+
+            toolTip.SetToolTip(btnEspelhoH, "Ativa/Desativa Espelho Horizontal");
+            toolTip.SetToolTip(btnEspelhoV, "Ativa/Desativa Espelho Vertical");
+            toolTip.SetToolTip(btnEspelhoHV, "Ativa/Desativa Espelho Horizontal e Vertical");
 
             // ==================== Painel inferior ====================
             panelBottom = new Panel { Dock = DockStyle.Bottom, Height = 50, BackColor = Color.FromArgb(45,45,48) };
@@ -444,24 +477,42 @@ namespace PixelArtEditor
         private void CriarFerramentas()
         {
             // 🖌️ Criação dos botões de ferramentas com o enum correto
-            btnLapis = CriarBotaoFerramenta("🖉 Lápis", 10, Ferramenta.Lapiz);
-            btnBorracha = CriarBotaoFerramenta("🧽 Borracha", 50, Ferramenta.Borracha);
-            btnBalde = CriarBotaoFerramenta("🪣 Balde", 90, Ferramenta.Balde);
-            Button btnRetangulo = CriarBotaoFerramenta("▭ Retângulo", 130, Ferramenta.Retangulo);
-            Button btnCirculo = CriarBotaoFerramenta("● Círculo", 170, Ferramenta.Circulo);
-            Button btnLinha = CriarBotaoFerramenta("／ Linha", 210, Ferramenta.Linha);
-            Button btnContaGotas = CriarBotaoFerramenta("Conta-Gotas", 250, Ferramenta.ContaGotas);
-            Button btnBaldeInteligente = CriarBotaoFerramenta("🪣✨ Balde Inteligente", 290, Ferramenta.BaldeInteligente);
+            btnLapis = CriarBotaoFerramenta("", 0, Ferramenta.Lapiz);
+            btnBorracha = CriarBotaoFerramenta("", 1, Ferramenta.Borracha);
+            btnBalde = CriarBotaoFerramenta("", 2, Ferramenta.Balde);
+            Button btnBaldeInteligente = CriarBotaoFerramenta("🪣✨ Balde Inteligente", 3, Ferramenta.BaldeInteligente);
+            Button btnRetangulo = CriarBotaoFerramenta("", 4, Ferramenta.Retangulo);
+            Button btnCirculo = CriarBotaoFerramenta("", 5, Ferramenta.Circulo);
+            Button btnLinha = CriarBotaoFerramenta("", 6, Ferramenta.Linha);
+            Button btnContaGotas = CriarBotaoFerramenta("Conta-Gotas", 7, Ferramenta.ContaGotas);
 
             // Adiciona ao painel
             panelLeft.Controls.Add(btnLapis);
             panelLeft.Controls.Add(btnBorracha);
             panelLeft.Controls.Add(btnBalde);
+            panelLeft.Controls.Add(btnBaldeInteligente);
             panelLeft.Controls.Add(btnRetangulo);
             panelLeft.Controls.Add(btnCirculo);
             panelLeft.Controls.Add(btnLinha);
             panelLeft.Controls.Add(btnContaGotas);
-            panelLeft.Controls.Add(btnBaldeInteligente);
+
+            // Ícones SVG (certifique-se de que os arquivos SVG estão no caminho correto)
+            SetButtonSvg(btnLapis, "icons/lapis.svg");
+            SetButtonSvg(btnBorracha, "icons/borracha.svg");
+            SetButtonSvg(btnBalde, "icons/balde.svg");
+            SetButtonSvg(btnRetangulo, "icons/retangulo.svg");
+            SetButtonSvg(btnCirculo, "icons/circulo.svg");
+            SetButtonSvg(btnLinha, "icons/linha.svg");
+            //SetButtonSvg(btnContaGotas, "icons/conta-gotas.svg", 32, 32);
+
+            toolTip.SetToolTip(btnLapis, "Lápis (Atalho: P)\nDesenhar pixel a pixel");
+            toolTip.SetToolTip(btnBorracha, "Borracha (Atalho: E)\nApagar pixel");
+            toolTip.SetToolTip(btnBalde, "Balde de Tinta (Atalho: B) \nPreencher áreas");
+            toolTip.SetToolTip(btnBaldeInteligente, "Balde Inteligente (Atalho: Shift+B) \nPreencher todos os pixels de mesma cor");
+            toolTip.SetToolTip(btnRetangulo, "Retângulo (Atalho: R)\nDesenhar retângulos");
+            toolTip.SetToolTip(btnCirculo, "Círculo (Atalho: C)\nDesenhar círculos");
+            toolTip.SetToolTip(btnLinha, "Linha (Atalho: L)\nDesenhar linhas retas");
+            toolTip.SetToolTip(btnContaGotas, "Conta-Gotas (Atalho: I)\nSelecionar cor do pixel clicado");
 
             // Define o botão ativo inicialmente
             SetActiveButton(btnLapis);
@@ -473,13 +524,17 @@ namespace PixelArtEditor
         // ===============================
 
         private Button CriarBotaoFerramenta(string texto, int posY, Ferramenta ferramenta)
-        {
+        {   
+            int btnSize = 60;
+            int spacing = 10;
+            
+
             Button btn = new Button
             {
                 Text = texto,
-                Width = 90,
-                Height = 30,
-                Location = new Point(15, posY),
+                Width = 60,
+                Height = btnSize,
+                Location = new Point(30, posY * (btnSize + spacing) + 10),
                 BackColor = FUNDOPADRAOBTN,
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat
