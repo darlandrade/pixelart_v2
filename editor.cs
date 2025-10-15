@@ -19,21 +19,23 @@ namespace PixelArtEditor
 
         private const int GridWidth = 32;
         private const int GridHeight = 32;
-        private bool mostrarGrid = false; // Controla a exibição da grade        
+        private bool mostrarGrid = false; // Controla a exibição da grade
 
         private Bitmap canvasBitmap;
         private Color drawColor = Color.Black;
         private Color secondaryColor = Color.FromArgb(65, 84, 63);
+        private Color colorTransparent = Color.Transparent;
 
         private Panel colorPrimaryPanel;
         private Panel colorSecondaryPanel;
+        private Panel colorTransparentPanel;
         private Panel[] quickColorPanels = new Panel[15];
 
         private Stack<Bitmap> undoStack = new Stack<Bitmap>();
         private const int MaxUndo = 20;
 
         private bool isDrawing = false;
-        private float zoom = 16f;
+        private float zoom = 10f;
         private float zoomIncrement = 1.1f;
         private const float zoommaximo = 60f;
 
@@ -89,7 +91,7 @@ namespace PixelArtEditor
         private void CriarLayout()
         {
             // ==================== Painel esquerdo ====================
-            panelLeft = new Panel { Dock = DockStyle.Left, Width = 100, BackColor = Color.FromArgb(45, 45, 48) };
+            panelLeft = new Panel { Dock = DockStyle.Left, Width = 120, BackColor = Color.FromArgb(45, 45, 48) };
             this.Controls.Add(panelLeft);
 
             CriarFerramentas();
@@ -112,6 +114,25 @@ namespace PixelArtEditor
             colorSecondaryPanel = CriarPainelCor(secondaryColor, 80, 20);
             colorSecondaryPanel.Click += (s, e) => EscolherCor(ref secondaryColor, colorSecondaryPanel);
             panelRight.Controls.Add(colorSecondaryPanel);
+
+            // Cor transparente
+            colorTransparentPanel = CriarPainelCor(colorTransparent, 140, 20);
+            colorTransparentPanel.MouseDown += (s, e) =>
+            {
+                if (e.Button == MouseButtons.Left)
+                {
+                    drawColor = Color.Transparent;
+                    colorPrimaryPanel.BackColor = colorTransparent; // indica transparência
+                }
+                else if (e.Button == MouseButtons.Right)
+                {
+                    secondaryColor = Color.Transparent;
+                    colorSecondaryPanel.BackColor = colorTransparent; // indica transparência
+                }
+            };
+
+            panelRight.Controls.Add(colorTransparentPanel);
+
 
             // Paleta rápida
             int startY = 90, padding = 5, panelSize = 30;
@@ -211,15 +232,30 @@ namespace PixelArtEditor
             panelRight.Controls.Add(btnEspelhoV);
             panelRight.Controls.Add(btnEspelhoHV);
 
-
+            AddHoverEffect(btnEspelhoH);
+            AddHoverEffect(btnEspelhoV);
+            AddHoverEffect(btnEspelhoHV);
 
             // ==================== Painel inferior ====================
             panelBottom = new Panel { Dock = DockStyle.Bottom, Height = 50, BackColor = Color.FromArgb(45,45,48) };
             this.Controls.Add(panelBottom);
 
-            btnNovo = new Button { Text = "Novo", Width = 100, Height = 30, Location = new Point(10, 10) };
-            btnExportar = new Button { Text = "Exportar", Width = 100, Height = 30, Location = new Point(120, 10) };
+            btnNovo = new Button { Text = "Novo", Width = 100, Height = 30, Location = new Point(10, 10),
+                BackColor = FUNDOPADRAOBTN,
+                ForeColor = Color.White,
+                FlatAppearance = { BorderSize = 1 }
+            };
+            btnExportar = new Button { Text = "Exportar", Width = 100, Height = 30, Location = new Point(120, 10),
+                BackColor = FUNDOPADRAOBTN, 
+                ForeColor = Color.White,
+                FlatAppearance = { BorderSize = 1 }
+                
+            };
             panelBottom.Controls.AddRange(new Control[] { btnNovo, btnExportar });
+
+            btnExportar.Click += btnExportar_Click;
+            AddHoverEffect(btnExportar);
+            AddHoverEffect(btnNovo);
 
             // ==================== Canvas ====================
             panelCanvas = new Panel { Dock = DockStyle.Fill, BackColor = Color.DimGray };
@@ -236,6 +272,32 @@ namespace PixelArtEditor
 
             this.KeyDown += Form1_KeyDown;
         }
+
+        // ==================== Funçãos Exportar PNG ====================
+        private void btnExportar_Click(object sender, EventArgs e)
+        {
+            using (SaveFileDialog sfd = new SaveFileDialog())
+            {
+                sfd.Filter = "PNG Image|*.png";
+                sfd.Title = "Exportar Canvas como PNG";
+                sfd.FileName = "pixelart.png";
+
+                if (sfd.ShowDialog() == DialogResult.OK)
+                {
+                    try
+                    {
+                        // Salva o bitmap diretamente como PNG
+                        canvasBitmap.Save(sfd.FileName, System.Drawing.Imaging.ImageFormat.Png);
+                        MessageBox.Show("Imagem exportada com sucesso!", "Sucesso", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Erro ao exportar: " + ex.Message, "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+        }
+
         // ==================== Funções de espelho ====================
         private void SetActiveMirrorButton(Button botao)
         {
@@ -388,7 +450,7 @@ namespace PixelArtEditor
             Button btnRetangulo = CriarBotaoFerramenta("▭ Retângulo", 130, Ferramenta.Retangulo);
             Button btnCirculo = CriarBotaoFerramenta("● Círculo", 170, Ferramenta.Circulo);
             Button btnLinha = CriarBotaoFerramenta("／ Linha", 210, Ferramenta.Linha);
-            Button btnContaGotas = CriarBotaoFerramenta("� eyedropper Conta-Gotas", 250, Ferramenta.ContaGotas);
+            Button btnContaGotas = CriarBotaoFerramenta("Conta-Gotas", 250, Ferramenta.ContaGotas);
             Button btnBaldeInteligente = CriarBotaoFerramenta("🪣✨ Balde Inteligente", 290, Ferramenta.BaldeInteligente);
 
             // Adiciona ao painel
@@ -417,7 +479,7 @@ namespace PixelArtEditor
                 Text = texto,
                 Width = 90,
                 Height = 30,
-                Location = new Point(5, posY),
+                Location = new Point(15, posY),
                 BackColor = FUNDOPADRAOBTN,
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat
@@ -692,7 +754,7 @@ namespace PixelArtEditor
             panelCanvas.Invalidate();
         }
 
-        private void Form1_KeyDown(object sender, KeyEventArgs e)
+        private void Form1_KeyDown(object sender, KeyEventArgs e) // Atalhos
         {
             if (e.KeyCode == Keys.Oemplus || e.KeyCode == Keys.Add) zoom *= zoomIncrement;
             else if (e.KeyCode == Keys.OemMinus || e.KeyCode == Keys.Subtract) zoom /= zoomIncrement;
@@ -702,11 +764,7 @@ namespace PixelArtEditor
                 canvasBitmap = undoStack.Pop();
                 panelCanvas.Invalidate();
             }
-            if (e.Control && e.KeyCode == Keys.G)
-            {
-                mostrarGrid = !mostrarGrid;
-            }
-            if (e.KeyCode == Keys.Z)
+            if (!e.Control && e.KeyCode == Keys.Z)
             {
                 Color corTemp = drawColor;
                 drawColor = secondaryColor;
@@ -715,6 +773,11 @@ namespace PixelArtEditor
                 colorSecondaryPanel.BackColor = secondaryColor;
                 colorPrimaryPanel.BackColor = drawColor;
             }
+            if (e.Control && e.KeyCode == Keys.G)
+            {
+                mostrarGrid = !mostrarGrid;
+            }
+            
 
             panelCanvas.Invalidate();
         }
