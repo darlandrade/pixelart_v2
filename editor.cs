@@ -9,6 +9,8 @@ using Svg;
 using System.Drawing;
 using System.Windows.Forms;
 
+
+
 namespace PixelArtEditor
 {
     public partial class Form1 : Form
@@ -55,7 +57,7 @@ namespace PixelArtEditor
 
 
         // ==================== Ferramentas ====================
-        private enum Ferramenta { Lapiz, Borracha, Balde, Retangulo, Circulo, Linha, ContaGotas, BaldeInteligente }
+        private enum Ferramenta { Lapiz, Borracha, Balde, Retangulo, Circulo, Linha, ContaGotas, BaldeInteligente, Selecao }
         private Ferramenta ferramentaAtual = Ferramenta.Lapiz;
         private Point? pontoFinal = null;
         private Point? pontoInicial = null;
@@ -64,6 +66,7 @@ namespace PixelArtEditor
         private Button btnBorracha;
         private Button btnBalde;
         private Bitmap previewBitmap = null;
+        private Button btnSelecao;
 
         // Flags globais
         private Button btnEspelhoH;
@@ -78,14 +81,24 @@ namespace PixelArtEditor
         // Inicializa o ToolTip
         private ToolTip toolTip;
 
+        // ==================== Ferramenta de Seleção ====================
+        private bool isSelecting = false; // Indica se o usuário está selecionando
+        private Point? selectStart = null; // Ponto inicial da seleção
+        private Point? selectEnd = null; // Ponto final da seleção
+        private Bitmap selectionBitmap = null; // Bitmap da área selecionada
+        private Bitmap selectedArea = null; // Área selecionada para mover
+        private Point selectionOffset; // Deslocamento da seleção
+        private bool isMovingSelection = false; // Indica se o usuário está movendo a seleção
 
 
         public Form1()
         {
             InitializeComponent();
             this.DoubleBuffered = true;
-            this.WindowState = FormWindowState.Maximized;
-            this.Text = "Pixel Art Editor";
+            var screen = Screen.PrimaryScreen.WorkingArea;
+            this.Width = (int)(screen.Width * .9);
+            this.Height = (int)(screen.Height * .9);
+            this.StartPosition = FormStartPosition.CenterScreen;
             this.KeyPreview = true;
             this.Text = mostrarGrid ? "Pixel Art Editor - Grid ON (Ctrl+G para alternar)" : "Pixel Art Editor - Grid OFF (Ctrl+G para alternar)";
 
@@ -101,6 +114,46 @@ namespace PixelArtEditor
             
 
 
+        }
+        private void FerramentaSelecao_MouseDown(object sender, MouseEventArgs e)
+        {
+            int x = (int)((e.X - OffsetX) / zoom);
+            int y = (int)((e.Y - OffsetY) / zoom);
+            selectStart = new Point(x, y);
+            selectEnd = null;
+            isSelecting = true;
+        }
+
+        private void FerramentaSelecao_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!isSelecting || !selectStart.HasValue) return;
+
+            int x = (int)((e.X - OffsetX) / zoom);
+            int y = (int)((e.Y - OffsetY) / zoom);
+            selectEnd = new Point(x, y);
+            panelCanvas.Invalidate();
+        }
+
+        private void FerramentaSelecao_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (!selectStart.HasValue || !selectEnd.HasValue) return;
+
+            int x1 = Math.Min(selectStart.Value.X, selectEnd.Value.X);
+            int y1 = Math.Min(selectStart.Value.Y, selectEnd.Value.Y);
+            int x2 = Math.Max(selectStart.Value.X, selectEnd.Value.X);
+            int y2 = Math.Max(selectStart.Value.Y, selectEnd.Value.Y);
+
+            int width = x2 - x1 + 1;
+            int height = y2 - y1 + 1;
+
+            selectionBitmap = new Bitmap(width, height);
+
+            for (int y = 0; y < height; y++)
+                for (int x = 0; x < width; x++)
+                    selectionBitmap.SetPixel(x, y, canvasBitmap.GetPixel(x1 + x, y1 + y));
+
+            isSelecting = false;
+            panelCanvas.Invalidate();
         }
         private void SetButtonSvg(Button btn, string caminhoSvg, int largura = 48, int altura = 48)
         {
@@ -148,17 +201,24 @@ namespace PixelArtEditor
             colorTransparentPanel = CriarPainelCor(colorTransparent, 140, 20);
             colorTransparentPanel.MouseDown += (s, e) =>
             {
-                if (e.Button == MouseButtons.Left)
+                if (colorTransparentPanel.BackColor == Color.Transparent)
                 {
-                    drawColor = Color.Transparent;
-                    colorPrimaryPanel.BackColor = colorTransparent; // indica transparência
-                }
-                else if (e.Button == MouseButtons.Right)
-                {
-                    secondaryColor = Color.Transparent;
-                    colorSecondaryPanel.BackColor = colorTransparent; // indica transparência
+                    if (e.Button == MouseButtons.Left)
+                    {
+                        drawColor = Color.Transparent;
+                        colorPrimaryPanel.BackColor = drawColor;
+                    }
+                    else if (e.Button == MouseButtons.Right)
+                    {
+                        secondaryColor = Color.Transparent;
+                        colorSecondaryPanel.BackColor = secondaryColor;
+                    }
                 }
             };
+
+            AddHoverCoresRapidas(colorTransparentPanel);
+            AddHoverCoresRapidas(colorPrimaryPanel);
+            AddHoverCoresRapidas(colorSecondaryPanel);
 
             panelRight.Controls.Add(colorTransparentPanel);
 
@@ -177,6 +237,7 @@ namespace PixelArtEditor
                     Cursor = Cursors.Hand
                 };
                 panelRight.Controls.Add(p);
+                AddHoverCoresRapidas(p);
                 quickColorPanels[i] = p;
 
                 p.MouseDown += (s, e) =>
@@ -480,11 +541,12 @@ namespace PixelArtEditor
             btnLapis = CriarBotaoFerramenta("", 0, Ferramenta.Lapiz);
             btnBorracha = CriarBotaoFerramenta("", 1, Ferramenta.Borracha);
             btnBalde = CriarBotaoFerramenta("", 2, Ferramenta.Balde);
-            Button btnBaldeInteligente = CriarBotaoFerramenta("🪣✨ Balde Inteligente", 3, Ferramenta.BaldeInteligente);
+            Button btnBaldeInteligente = CriarBotaoFerramenta("", 3, Ferramenta.BaldeInteligente);
             Button btnRetangulo = CriarBotaoFerramenta("", 4, Ferramenta.Retangulo);
             Button btnCirculo = CriarBotaoFerramenta("", 5, Ferramenta.Circulo);
             Button btnLinha = CriarBotaoFerramenta("", 6, Ferramenta.Linha);
-            Button btnContaGotas = CriarBotaoFerramenta("Conta-Gotas", 7, Ferramenta.ContaGotas);
+            Button btnContaGotas = CriarBotaoFerramenta("", 7, Ferramenta.ContaGotas);
+            Button btnSelecao = CriarBotaoFerramenta("", 8, Ferramenta.Selecao);
 
             // Adiciona ao painel
             panelLeft.Controls.Add(btnLapis);
@@ -495,6 +557,7 @@ namespace PixelArtEditor
             panelLeft.Controls.Add(btnCirculo);
             panelLeft.Controls.Add(btnLinha);
             panelLeft.Controls.Add(btnContaGotas);
+            panelLeft.Controls.Add(btnSelecao);
 
             // Ícones SVG (certifique-se de que os arquivos SVG estão no caminho correto)
             SetButtonSvg(btnLapis, "icons/lapis.svg");
@@ -503,7 +566,8 @@ namespace PixelArtEditor
             SetButtonSvg(btnRetangulo, "icons/retangulo.svg");
             SetButtonSvg(btnCirculo, "icons/circulo.svg");
             SetButtonSvg(btnLinha, "icons/linha.svg");
-            //SetButtonSvg(btnContaGotas, "icons/conta-gotas.svg", 32, 32);
+            SetButtonSvg(btnBaldeInteligente, "icons/baldeinteligente.svg");
+            SetButtonSvg(btnContaGotas, "icons/conta-gotas.svg");
 
             toolTip.SetToolTip(btnLapis, "Lápis (Atalho: P)\nDesenhar pixel a pixel");
             toolTip.SetToolTip(btnBorracha, "Borracha (Atalho: E)\nApagar pixel");
@@ -513,6 +577,7 @@ namespace PixelArtEditor
             toolTip.SetToolTip(btnCirculo, "Círculo (Atalho: C)\nDesenhar círculos");
             toolTip.SetToolTip(btnLinha, "Linha (Atalho: L)\nDesenhar linhas retas");
             toolTip.SetToolTip(btnContaGotas, "Conta-Gotas (Atalho: I)\nSelecionar cor do pixel clicado");
+            toolTip.SetToolTip(btnSelecao, "Seleção (Atalho: S)\nSelecionar área do canvas");
 
             // Define o botão ativo inicialmente
             SetActiveButton(btnLapis);
@@ -563,6 +628,57 @@ namespace PixelArtEditor
         {
             btn.MouseEnter += (s, e) => { if (btn.BackColor != Color.DarkCyan) btn.BackColor = MOUSEHOVERBTNCOLOR; };
             btn.MouseLeave += (s, e) => { if (btn.BackColor != Color.DarkCyan) btn.BackColor = FUNDOPADRAOBTN; };
+        }
+
+        private void AddHoverCoresRapidas(Panel qc)
+        {
+            int originalSize = qc.Width;
+            int hoverSize = (int)(originalSize * 1.2); // aumenta 20%
+            Point originalLocation = qc.Location; // salva posição original
+
+            System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
+            timer.Interval = 15;
+
+            int targetSize = originalSize;
+            int step = 2;
+
+            
+
+            qc.MouseEnter += (s, e) =>
+            {
+                if (qc.BackColor == Color.Transparent)
+                    return; // não aplica efeito se for transparente
+                targetSize = hoverSize;
+                timer.Start();
+            };
+
+            qc.MouseLeave += (s, e) =>
+            {
+                targetSize = originalSize;
+                timer.Start();
+            };
+
+            timer.Tick += (s, e) =>
+            {
+                if (qc.Width < targetSize)
+                {
+                    qc.Width = Math.Min(qc.Width + step, targetSize);
+                    qc.Height = qc.Width;
+                }
+                else if (qc.Width > targetSize)
+                {
+                    qc.Width = Math.Max(qc.Width - step, targetSize);
+                    qc.Height = qc.Width;
+                }
+                else
+                {
+                    timer.Stop();
+                }
+
+                // Centraliza usando a posição original
+                qc.Left = originalLocation.X - (qc.Width - originalSize) / 2;
+                qc.Top = originalLocation.Y - (qc.Height - originalSize) / 2;
+            };
         }
 
         private void AtivarDoubleBuffer(Control c)
@@ -622,6 +738,21 @@ namespace PixelArtEditor
             // ----------------- Outras ferramentas -----------------
             if (e.Button != MouseButtons.Left && e.Button != MouseButtons.Right) return;
 
+            // ----------------- Seleção -----------------
+            if (ferramentaAtual == Ferramenta.Selecao)
+            {
+                if (e.Button == MouseButtons.Left)
+                {
+                    selectStart = new Point(x, y);
+                    selectEnd = selectStart;
+                    isSelecting = true;
+
+                    panelCanvas.Invalidate(); // redesenha para mostrar seleção
+                    return; // não desenha nada
+                }
+            }
+
+            // Salva estado atual para undo
             SalvarParaUndo();
 
 
@@ -639,8 +770,6 @@ namespace PixelArtEditor
                 if (corAlvo != corNova)
                     BaldeInteligenteGlobal(corAlvo, corNova);
             }
-
-
             else
             {
                 isDrawing = true;
@@ -669,7 +798,12 @@ namespace PixelArtEditor
                 pontoFinal = new Point(x, y);
                 panelCanvas.Invalidate(); // força o redraw do canvas
             }
-                else if (isDrawing)
+            else if (ferramentaAtual == Ferramenta.Selecao && isSelecting && selectStart.HasValue)
+            {
+                selectEnd = new Point(x, y);
+                panelCanvas.Invalidate(); // redesenha para mostrar seleção
+            }
+            else if (isDrawing)
             {
                 // 🔧 Corrigido: detectar qual botão está pressionado
                 if (Control.MouseButtons == MouseButtons.Left)
@@ -708,8 +842,12 @@ namespace PixelArtEditor
                 pontoFinal = null;
                 panelCanvas.Invalidate();
             }
-
-
+            if (isSelecting && selectStart.HasValue && selectEnd.HasValue)
+            {
+                isSelecting = false;
+                // Aqui você pode copiar os pixels da seleção ou preparar para mover, se quiser
+                panelCanvas.Invalidate();
+            }
 
             isDrawing = false;
 
@@ -1075,7 +1213,22 @@ namespace PixelArtEditor
                     DrawPreviewPixelComEspelho(e.Graphics, p.X, p.Y, CORPREFORMA);
 
             }
+            // ==================== Desenhar seleção (tracejado) ====================
+            if (selectStart.HasValue && selectEnd.HasValue)
+            {
+                int x1 = Math.Min(selectStart.Value.X, selectEnd.Value.X);
+                int y1 = Math.Min(selectStart.Value.Y, selectEnd.Value.Y);
+                int x2 = Math.Max(selectStart.Value.X, selectEnd.Value.X);
+                int y2 = Math.Max(selectStart.Value.Y, selectEnd.Value.Y);
 
+                RectangleF rect = new RectangleF(OffsetX + x1 * zoom, OffsetY + y1 * zoom,
+                                               (x2 - x1 + 1) * zoom, (y2 - y1 + 1) * zoom);
+                using (Pen pen = new Pen(Color.White))
+                {
+                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                    g.DrawRectangle(pen, rect);
+                }
+            }
 
         }
 
