@@ -18,8 +18,8 @@ namespace PixelArtEditor
         private static readonly Color FUNDOPADRAOBTN = Color.FromArgb(60, 60, 64);
         private static readonly Color MOUSEHOVERBTNCOLOR = Color.FromArgb(15, 62, 138);
         private static readonly Color BTNATIVO = Color.DarkCyan;
-        private static readonly Color CORCANVAS1 = Color.FromArgb(150,150,150); 
-        private static readonly Color CORCANVAS2 = Color.FromArgb(145,145,145);
+        private static readonly Color CORCANVAS1 = Color.FromArgb(150, 150, 150);
+        private static readonly Color CORCANVAS2 = Color.FromArgb(145, 145, 145);
         private static readonly Color CORPREFORMA = Color.FromArgb(100, 0, 255, 255);
 
         private const int GridWidth = 32;
@@ -100,6 +100,7 @@ namespace PixelArtEditor
             this.Height = (int)(screen.Height * .9);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.KeyPreview = true;
+             
             this.Text = mostrarGrid ? "Pixel Art Editor - Grid ON (Ctrl+G para alternar)" : "Pixel Art Editor - Grid OFF (Ctrl+G para alternar)";
 
             toolTip = new ToolTip();
@@ -111,7 +112,7 @@ namespace PixelArtEditor
             canvasBitmap = new Bitmap(GridWidth, GridHeight);
             CriarLayout();
 
-            
+
 
 
         }
@@ -184,7 +185,7 @@ namespace PixelArtEditor
 
 
             // ==================== Painel direito ====================
-            panelRight = new Panel { Dock = DockStyle.Right, Width = 200, BackColor = Color.FromArgb(45,45,48) };
+            panelRight = new Panel { Dock = DockStyle.Right, Width = 200, BackColor = Color.FromArgb(45, 45, 48) };
             this.Controls.Add(panelRight);
 
             // Cor primária
@@ -331,19 +332,29 @@ namespace PixelArtEditor
             toolTip.SetToolTip(btnEspelhoHV, "Ativa/Desativa Espelho Horizontal e Vertical");
 
             // ==================== Painel inferior ====================
-            panelBottom = new Panel { Dock = DockStyle.Bottom, Height = 50, BackColor = Color.FromArgb(45,45,48) };
+            panelBottom = new Panel { Dock = DockStyle.Bottom, Height = 50, BackColor = Color.FromArgb(45, 45, 48) };
             this.Controls.Add(panelBottom);
 
-            btnNovo = new Button { Text = "Novo", Width = 100, Height = 30, Location = new Point(10, 10),
+            btnNovo = new Button
+            {
+                Text = "Novo",
+                Width = 100,
+                Height = 30,
+                Location = new Point(10, 10),
                 BackColor = FUNDOPADRAOBTN,
                 ForeColor = Color.White,
                 FlatAppearance = { BorderSize = 1 }
             };
-            btnExportar = new Button { Text = "Exportar", Width = 100, Height = 30, Location = new Point(120, 10),
-                BackColor = FUNDOPADRAOBTN, 
+            btnExportar = new Button
+            {
+                Text = "Exportar",
+                Width = 100,
+                Height = 30,
+                Location = new Point(120, 10),
+                BackColor = FUNDOPADRAOBTN,
                 ForeColor = Color.White,
                 FlatAppearance = { BorderSize = 1 }
-                
+
             };
             panelBottom.Controls.AddRange(new Control[] { btnNovo, btnExportar });
 
@@ -589,10 +600,10 @@ namespace PixelArtEditor
         // ===============================
 
         private Button CriarBotaoFerramenta(string texto, int posY, Ferramenta ferramenta)
-        {   
+        {
             int btnSize = 60;
             int spacing = 10;
-            
+
 
             Button btn = new Button
             {
@@ -642,7 +653,7 @@ namespace PixelArtEditor
             int targetSize = originalSize;
             int step = 2;
 
-            
+
 
             qc.MouseEnter += (s, e) =>
             {
@@ -957,6 +968,13 @@ namespace PixelArtEditor
                 canvasBitmap = undoStack.Pop();
                 panelCanvas.Invalidate();
             }
+            if (e.KeyCode == Keys.Escape)
+            {
+                selectStart = null;
+                selectEnd = null;
+                isSelecting = false;
+                panelCanvas.Invalidate();
+            }
             if (!e.Control && e.KeyCode == Keys.Z)
             {
                 Color corTemp = drawColor;
@@ -970,7 +988,7 @@ namespace PixelArtEditor
             {
                 mostrarGrid = !mostrarGrid;
             }
-            
+
 
             panelCanvas.Invalidate();
         }
@@ -1148,8 +1166,8 @@ namespace PixelArtEditor
                 using (Brush previewBrush = new SolidBrush(CORPREFORMA))
                 {
                     // Linha superior e inferior
-                    for(int x = x1; x <= x2; x++)
-{
+                    for (int x = x1; x <= x2; x++)
+                    {
                         DrawPreviewPixelComEspelho(g, x, y1, CORPREFORMA);
                         DrawPreviewPixelComEspelho(g, x, y2, CORPREFORMA);
                     }
